@@ -8,6 +8,9 @@ Let's use Cursor to create a simple REST API server
 
 Commands:
 Start Postgres: brew services start postgresql
+Enter DB: psql -d tamagotchi_db
+SELECT * FROM tamagotchi;
+
 npm run setup
 npm run dev
 

@@ -28,6 +28,6 @@
     "jest": "^29.7.0"
   },
   "keywords": ["tamagotchi", "game", "nodejs", "express", "postgresql"],
-  "author": "Your Name",
+  "author": "Adam Hageman",
   "license": "MIT"
 } 
