@@ -20,7 +20,9 @@ app.use((req, res, next) => {
 });
 
 // Serve static files from public directory
-app.use(express.static('public'));
+app.use(express.static('public', {
+  fallthrough: true // Allow requests to fall through to the next middleware
+}));
 
 // Security middleware
 app.use(helmet());
@@ -207,14 +209,29 @@ if (!process.env.VERCEL) {
 // Fallback to index.html for SPA routing
 app.get('*', (req, res) => {
   console.log('Serving index.html for path:', req.path);
-  try {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  } catch (error) {
-    console.error('Error serving index.html:', error);
-    res.status(500).json({ 
-      error: 'Failed to serve static file',
+  
+  // Check if the file exists first
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  const fs = require('fs');
+  
+  if (fs.existsSync(indexPath)) {
+    try {
+      res.sendFile(indexPath);
+    } catch (error) {
+      console.error('Error serving index.html:', error);
+      res.status(500).json({ 
+        error: 'Failed to serve static file',
+        path: req.path,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } else {
+    console.error('index.html not found at:', indexPath);
+    res.status(404).json({ 
+      error: 'Static files not found',
       path: req.path,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      availableFiles: fs.readdirSync(__dirname).join(', ')
     });
   }
 });
