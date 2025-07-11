@@ -28,7 +28,21 @@ pool.on('connect', () => {
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  // Don't exit process in production, just log the error
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(-1);
+  }
 });
+
+// Add a test query function
+pool.testConnection = async function() {
+  try {
+    await this.query('SELECT NOW()');
+    return true;
+  } catch (error) {
+    console.error('Database connection test failed:', error.message);
+    return false;
+  }
+};
 
 module.exports = pool; 

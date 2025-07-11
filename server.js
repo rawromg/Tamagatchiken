@@ -40,8 +40,27 @@ app.use('/auth', authRoutes);
 app.use('/pet', petRoutes);
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+  try {
+    const db = require('./config/database');
+    await db.query('SELECT NOW()');
+    
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      database: 'connected'
+    });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(500).json({ 
+      status: 'ERROR', 
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      database: 'disconnected',
+      error: error.message
+    });
+  }
 });
 
 // Development mode check endpoint
@@ -49,6 +68,25 @@ app.get('/dev-mode', (req, res) => {
   res.json({ 
     isDevMode: process.env.NODE_ENV === 'development' || process.argv.includes('dev'),
     timestamp: new Date().toISOString() 
+  });
+});
+
+// Debug endpoint for environment variables (development only)
+app.get('/debug', (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  
+  res.json({
+    environment: process.env.NODE_ENV || 'development',
+    port: process.env.PORT || 'not set',
+    dbHost: process.env.DB_HOST || 'not set',
+    dbPort: process.env.DB_PORT || 'not set',
+    dbName: process.env.DB_NAME || 'not set',
+    dbUser: process.env.DB_USER ? 'set' : 'not set',
+    dbPassword: process.env.DB_PASSWORD ? 'set' : 'not set',
+    jwtSecret: process.env.JWT_SECRET ? 'set' : 'not set',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -107,8 +145,18 @@ app.get('*', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('Server error:', err);
+  console.error('Error stack:', err.stack);
+  
+  // Don't expose internal errors in production
+  const errorMessage = process.env.NODE_ENV === 'production' 
+    ? 'Something went wrong!' 
+    : err.message;
+    
+  res.status(500).json({ 
+    error: errorMessage,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // 404 handler (will not be reached due to SPA fallback)
@@ -116,13 +164,42 @@ app.use((err, req, res, next) => {
 //   res.status(404).json({ error: 'Route not found' });
 // });
 
+// Test database connection on startup
+async function testDatabaseConnection() {
+  try {
+    const db = require('./config/database');
+    await db.query('SELECT NOW()');
+    console.log('✅ Database connection successful');
+    return true;
+  } catch (error) {
+    console.error('❌ Database connection failed:', error.message);
+    return false;
+  }
+}
+
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Tamagotchi server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔒 SSL Mode: ${process.env.NODE_ENV === 'production' ? 'enabled' : 'disabled'}`);
-  console.log(`🌐 CORS: ${process.env.NODE_ENV === 'production' ? 'disabled' : 'enabled'}`);
-});
+async function startServer() {
+  try {
+    // Test database connection
+    const dbConnected = await testDatabaseConnection();
+    if (!dbConnected) {
+      console.error('❌ Cannot start server without database connection');
+      process.exit(1);
+    }
+    
+    app.listen(PORT, () => {
+      console.log(`🚀 Tamagotchi server running on port ${PORT}`);
+      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+      console.log(`🔒 SSL Mode: ${process.env.NODE_ENV === 'production' ? 'enabled' : 'disabled'}`);
+      console.log(`🌐 CORS: ${process.env.NODE_ENV === 'production' ? 'disabled' : 'enabled'}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 module.exports = app; 
