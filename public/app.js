@@ -1,6 +1,7 @@
 class TamagotchiApp {
     constructor() {
-        this.apiBase = 'http://localhost:3000';
+        // Use current domain for API calls
+        this.apiBase = window.location.origin;
         this.token = localStorage.getItem('token');
         this.user = JSON.parse(localStorage.getItem('user'));
         this.currentPet = null;
