@@ -10,6 +10,33 @@ const authRoutes = require('./routes/auth');
 const petRoutes = require('./routes/pet');
 const Tamagotchi = require('./models/Tamagotchi');
 
+// Load static files at startup for Vercel compatibility
+const fs = require('fs');
+let indexHtml = null;
+let stylesCss = null;
+let appJs = null;
+
+try {
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  const stylesPath = path.join(__dirname, 'public', 'styles.css');
+  const appJsPath = path.join(__dirname, 'public', 'app.js');
+  
+  if (fs.existsSync(indexPath)) {
+    indexHtml = fs.readFileSync(indexPath, 'utf8');
+    console.log('✅ Loaded index.html from file system');
+  }
+  if (fs.existsSync(stylesPath)) {
+    stylesCss = fs.readFileSync(stylesPath, 'utf8');
+    console.log('✅ Loaded styles.css from file system');
+  }
+  if (fs.existsSync(appJsPath)) {
+    appJs = fs.readFileSync(appJsPath, 'utf8');
+    console.log('✅ Loaded app.js from file system');
+  }
+} catch (error) {
+  console.warn('⚠️ Could not load static files from file system:', error.message);
+}
+
 const app = express();
 const PORT = process.env.NODE_ENV === 'production' ? (process.env.PORT || 3001) : (process.env.PORT || 3000);
 
@@ -19,13 +46,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static files from public directory
-app.use(express.static(path.join(__dirname, 'public'), {
-  fallthrough: true // Allow requests to fall through to the next middleware
-}));
-
-// Also serve static files from root public directory (for Vercel)
-app.use('/public', express.static(path.join(__dirname, 'public')));
+// Note: Static files are now served directly from memory for better Vercel compatibility
 
 // Security middleware
 app.use(helmet());
@@ -209,77 +230,109 @@ if (!process.env.VERCEL) {
   });
 }
 
+
+
+// Serve static files from memory
+app.get('/styles.css', (req, res) => {
+  if (stylesCss) {
+    res.setHeader('Content-Type', 'text/css');
+    res.send(stylesCss);
+  } else {
+    res.status(404).json({ error: 'styles.css not found' });
+  }
+});
+
+app.get('/app.js', (req, res) => {
+  if (appJs) {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.send(appJs);
+  } else {
+    res.status(404).json({ error: 'app.js not found' });
+  }
+});
+
 // Fallback to index.html for SPA routing
 app.get('*', (req, res) => {
   console.log('Serving index.html for path:', req.path);
   
-  const fs = require('fs');
-  
-  // Try multiple possible paths for index.html
-  const possiblePaths = [
-    path.join(__dirname, 'public', 'index.html'),
-    path.join(__dirname, 'index.html'),
-    'public/index.html',
-    'index.html',
-    '/var/task/public/index.html',
-    '/tmp/public/index.html'
-  ];
-  
-  let indexPath = null;
-  for (const testPath of possiblePaths) {
-    if (fs.existsSync(testPath)) {
-      indexPath = testPath;
-      break;
+  if (indexHtml) {
+    res.setHeader('Content-Type', 'text/html');
+    res.send(indexHtml);
+  } else {
+    console.error('index.html not available in memory');
+    
+    // Fallback: try to read from file system
+    const fs = require('fs');
+    const possiblePaths = [
+      path.join(__dirname, 'public', 'index.html'),
+      path.join(__dirname, 'index.html'),
+      'public/index.html',
+      'index.html',
+      '/var/task/public/index.html',
+      '/tmp/public/index.html'
+    ];
+    
+    let indexPath = null;
+    for (const testPath of possiblePaths) {
+      if (fs.existsSync(testPath)) {
+        indexPath = testPath;
+        break;
+      }
     }
-  }
-  
-  if (indexPath) {
-    try {
-      console.log('Found index.html at:', indexPath);
-      res.sendFile(indexPath);
-    } catch (error) {
-      console.error('Error serving index.html:', error);
-      res.status(500).json({ 
-        error: 'Failed to serve static file',
+    
+    if (indexPath) {
+      try {
+        console.log('Found index.html at:', indexPath);
+        res.sendFile(indexPath);
+      } catch (error) {
+        console.error('Error serving index.html:', error);
+        res.status(500).json({ 
+          error: 'Failed to serve static file',
+          path: req.path,
+          indexPath: indexPath,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } else {
+      console.error('index.html not found in any of the expected locations');
+      
+      // List files in both root and public directories for debugging
+      let rootFiles = 'unable to read';
+      let publicFiles = 'unable to read';
+      
+      try {
+        rootFiles = fs.readdirSync(__dirname).join(', ');
+      } catch (error) {
+        rootFiles = `Error reading root: ${error.message}`;
+      }
+      
+      try {
+        const publicDir = path.join(__dirname, 'public');
+        if (fs.existsSync(publicDir)) {
+          publicFiles = fs.readdirSync(publicDir).join(', ');
+        } else {
+          publicFiles = 'public directory not found';
+        }
+      } catch (error) {
+        publicFiles = `Error reading public: ${error.message}`;
+      }
+      
+      res.status(404).json({ 
+        error: 'Static files not found',
         path: req.path,
-        indexPath: indexPath,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        triedPaths: possiblePaths,
+        rootFiles: rootFiles,
+        publicFiles: publicFiles,
+        vercel: !!process.env.VERCEL,
+        cwd: process.cwd(),
+        memoryLoaded: {
+          indexHtml: !!indexHtml,
+          stylesCss: !!stylesCss,
+          appJs: !!appJs
+        }
       });
     }
-  } else {
-    console.error('index.html not found in any of the expected locations');
-    
-    // List files in both root and public directories for debugging
-    let rootFiles = 'unable to read';
-    let publicFiles = 'unable to read';
-    
-    try {
-      rootFiles = fs.readdirSync(__dirname).join(', ');
-    } catch (error) {
-      rootFiles = `Error reading root: ${error.message}`;
-    }
-    
-    try {
-      const publicDir = path.join(__dirname, 'public');
-      if (fs.existsSync(publicDir)) {
-        publicFiles = fs.readdirSync(publicDir).join(', ');
-      } else {
-        publicFiles = 'public directory not found';
-      }
-    } catch (error) {
-      publicFiles = `Error reading public: ${error.message}`;
-    }
-    
-    res.status(404).json({ 
-      error: 'Static files not found',
-      path: req.path,
-      timestamp: new Date().toISOString(),
-      triedPaths: possiblePaths,
-      rootFiles: rootFiles,
-      publicFiles: publicFiles,
-      vercel: !!process.env.VERCEL,
-      cwd: process.cwd()
-    });
   }
 });
 
