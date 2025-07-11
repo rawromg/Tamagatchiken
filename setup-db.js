@@ -8,6 +8,15 @@ require('dotenv').config();
 console.log('🗄️ Database Setup Script for Tamagotchi Web App\n');
 
 async function setupDatabase() {
+    // Check if we're in a Vercel build environment
+    if (process.env.VERCEL) {
+        console.log('🏗️ Vercel build environment detected');
+        console.log('💡 Database setup will be skipped during build');
+        console.log('💡 Database tables must be created manually in production');
+        console.log('💡 Run the schema.sql file on your PostgreSQL database');
+        return;
+    }
+    
     console.log('📋 Checking environment variables...');
     
     const required = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
@@ -16,6 +25,14 @@ async function setupDatabase() {
     if (missing.length > 0) {
         console.error('❌ Missing database environment variables:', missing.join(', '));
         console.log('💡 Please ensure all database credentials are set');
+        
+        // In Vercel build environment, don't fail the build if DB vars are missing
+        if (process.env.VERCEL) {
+            console.log('🏗️ Vercel build environment detected - database setup will be skipped');
+            console.log('💡 Database tables must be created manually in production');
+            return;
+        }
+        
         process.exit(1);
     }
     
