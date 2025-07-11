@@ -23,8 +23,15 @@ router.get('/:petId.png', async (req, res) => {
     // Generate the image
     const imageBuffer = await generatePetImage(currentState);
     
+    // Check if it's SVG (fallback) or PNG
+    const isSvg = imageBuffer.toString().startsWith('<?xml');
+    
     // Set response headers
-    res.setHeader('Content-Type', 'image/png');
+    if (isSvg) {
+      res.setHeader('Content-Type', 'image/svg+xml');
+    } else {
+      res.setHeader('Content-Type', 'image/png');
+    }
     res.setHeader('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
     res.send(imageBuffer);
     
@@ -589,90 +596,143 @@ router.post('/dev-stage', [
 
 // Helper function to generate pet status image
 async function generatePetImage(pet) {
-  const width = 400;
-  const height = 300;
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext('2d');
-  
-  // Background gradient
-  const gradient = ctx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, '#667eea');
-  gradient.addColorStop(1, '#764ba2');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
-  
-  // Pet name
-  ctx.fillStyle = 'white';
-  ctx.font = 'bold 24px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText(pet.name, width / 2, 40);
-  
-  // Pet stage emoji
-  const stageEmojis = {
-    'egg': '🥚',
-    'baby': '🐣',
-    'child': '🐤',
-    'teen': '🐥',
-    'adult': '🐔',
-    'dead': '💀'
-  };
-  
-  const emoji = stageEmojis[pet.stage] || '🥚';
-  ctx.font = '48px Arial';
-  ctx.fillText(emoji, width / 2, 100);
-  
-  // Stage text
-  ctx.font = '16px Arial';
-  ctx.fillText(`Stage: ${pet.stage}`, width / 2, 130);
-  
-  // Stats section
-  const stats = [
-    { name: 'Hunger', value: pet.hunger, color: '#ff6b6b' },
-    { name: 'Happiness', value: pet.happiness, color: '#4ecdc4' },
-    { name: 'Hygiene', value: pet.hygiene, color: '#45b7d1' },
-    { name: 'Health', value: pet.health, color: '#96ceb4' },
-    { name: 'Discipline', value: pet.discipline, color: '#feca57' },
-    { name: 'Energy', value: pet.energy, color: '#ff9ff3' }
-  ];
-  
-  const startY = 160;
-  const statHeight = 20;
-  const barWidth = 200;
-  
-  stats.forEach((stat, index) => {
-    const y = startY + (index * statHeight);
+  try {
+    // Try to use canvas if available
+    const width = 400;
+    const height = 300;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
     
-    // Stat name
+    // Background gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, '#667eea');
+    gradient.addColorStop(1, '#764ba2');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    
+    // Pet name
     ctx.fillStyle = 'white';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText(stat.name, 50, y + 15);
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(pet.name, width / 2, 40);
     
-    // Stat value
-    ctx.textAlign = 'right';
-    ctx.fillText(`${stat.value}%`, 350, y + 15);
+    // Pet stage emoji
+    const stageEmojis = {
+      'egg': '🥚',
+      'baby': '🐣',
+      'child': '🐤',
+      'teen': '🐥',
+      'adult': '🐔',
+      'dead': '💀'
+    };
     
-    // Progress bar background
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.fillRect(150, y, barWidth, 12);
+    const emoji = stageEmojis[pet.stage] || '🥚';
+    ctx.font = '48px Arial';
+    ctx.fillText(emoji, width / 2, 100);
     
-    // Progress bar fill
-    ctx.fillStyle = stat.color;
-    ctx.fillRect(150, y, (barWidth * stat.value) / 100, 12);
+    // Stage text
+    ctx.font = '16px Arial';
+    ctx.fillText(`Stage: ${pet.stage}`, width / 2, 130);
     
-    // Progress bar border
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(150, y, barWidth, 12);
-  });
-  
-  // Footer
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-  ctx.font = '10px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText('Tamagotchi Web App', width / 2, height - 10);
-  
-  return canvas.toBuffer('image/png');
+    // Stats section
+    const stats = [
+      { name: 'Hunger', value: pet.hunger, color: '#ff6b6b' },
+      { name: 'Happiness', value: pet.happiness, color: '#4ecdc4' },
+      { name: 'Hygiene', value: pet.hygiene, color: '#45b7d1' },
+      { name: 'Health', value: pet.health, color: '#96ceb4' },
+      { name: 'Discipline', value: pet.discipline, color: '#feca57' },
+      { name: 'Energy', value: pet.energy, color: '#ff9ff3' }
+    ];
+    
+    const startY = 160;
+    const statHeight = 20;
+    const barWidth = 200;
+    
+    stats.forEach((stat, index) => {
+      const y = startY + (index * statHeight);
+      
+      // Stat name
+      ctx.fillStyle = 'white';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(stat.name, 50, y + 15);
+      
+      // Stat value
+      ctx.textAlign = 'right';
+      ctx.fillText(`${stat.value}%`, 350, y + 15);
+      
+      // Progress bar background
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.fillRect(150, y, barWidth, 12);
+      
+      // Progress bar fill
+      ctx.fillStyle = stat.color;
+      ctx.fillRect(150, y, (barWidth * stat.value) / 100, 12);
+      
+      // Progress bar border
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(150, y, barWidth, 12);
+    });
+    
+    // Footer
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Tamagotchi Web App', width / 2, height - 10);
+    
+    return canvas.toBuffer('image/png');
+  } catch (error) {
+    console.error('Canvas generation failed, using SVG fallback:', error.message);
+    
+    // Fallback: Generate SVG instead
+    const stageEmojis = {
+      'egg': '🥚',
+      'baby': '🐣',
+      'child': '🐤',
+      'teen': '🐥',
+      'adult': '🐔',
+      'dead': '💀'
+    };
+    
+    const emoji = stageEmojis[pet.stage] || '🥚';
+    const stats = [
+      { name: 'Hunger', value: pet.hunger, color: '#ff6b6b' },
+      { name: 'Happiness', value: pet.happiness, color: '#4ecdc4' },
+      { name: 'Hygiene', value: pet.hygiene, color: '#45b7d1' },
+      { name: 'Health', value: pet.health, color: '#96ceb4' },
+      { name: 'Discipline', value: pet.discipline, color: '#feca57' },
+      { name: 'Energy', value: pet.energy, color: '#ff9ff3' }
+    ];
+    
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <text x="200" y="40" font-family="Arial, sans-serif" font-size="24" font-weight="bold" text-anchor="middle" fill="white">${pet.name}</text>
+  <text x="200" y="100" font-family="Arial, sans-serif" font-size="48" text-anchor="middle" fill="white">${emoji}</text>
+  <text x="200" y="130" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" fill="white">Stage: ${pet.stage}</text>
+  ${stats.map((stat, index) => {
+    const y = 160 + (index * 20);
+    const barWidth = 200;
+    const fillWidth = (barWidth * stat.value) / 100;
+    return `
+  <text x="50" y="${y + 15}" font-family="Arial, sans-serif" font-size="12" fill="white">${stat.name}</text>
+  <text x="350" y="${y + 15}" font-family="Arial, sans-serif" font-size="12" text-anchor="end" fill="white">${stat.value}%</text>
+  <rect x="150" y="${y}" width="${barWidth}" height="12" fill="rgba(255,255,255,0.3)"/>
+  <rect x="150" y="${y}" width="${fillWidth}" height="12" fill="${stat.color}"/>
+  <rect x="150" y="${y}" width="${barWidth}" height="12" fill="none" stroke="white" stroke-width="1"/>`;
+  }).join('')}
+  <text x="200" y="290" font-family="Arial, sans-serif" font-size="10" text-anchor="middle" fill="rgba(255,255,255,0.7)">Tamagotchi Web App</text>
+</svg>`;
+    
+    return Buffer.from(svg, 'utf8');
+  }
 }
 
 module.exports = router; 
