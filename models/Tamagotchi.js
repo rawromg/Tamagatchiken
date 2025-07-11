@@ -18,6 +18,12 @@ class Tamagotchi {
     return result.rows[0];
   }
 
+  static async findById(petId) {
+    const query = 'SELECT * FROM tamagotchi WHERE id = $1';
+    const result = await db.query(query, [petId]);
+    return result.rows[0];
+  }
+
   static async updateStats(userId, updates) {
     const query = `
       UPDATE tamagotchi 

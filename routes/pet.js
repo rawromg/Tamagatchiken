@@ -2,7 +2,37 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const Tamagotchi = require('../models/Tamagotchi');
+const { createCanvas, loadImage, registerFont } = require('canvas');
 const router = express.Router();
+
+// Generate pet status image (must come before other routes to avoid conflicts)
+router.get('/:petId.png', async (req, res) => {
+  try {
+    const { petId } = req.params;
+    
+    // Find pet by ID
+    const tamagotchi = await Tamagotchi.findById(petId);
+    
+    if (!tamagotchi) {
+      return res.status(404).json({ error: 'Pet not found' });
+    }
+    
+    // Calculate current state with passive degradation
+    const currentState = await Tamagotchi.calculatePassiveDegradation(tamagotchi);
+    
+    // Generate the image
+    const imageBuffer = await generatePetImage(currentState);
+    
+    // Set response headers
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+    res.send(imageBuffer);
+    
+  } catch (error) {
+    console.error('🐾 Generate pet image error:', error);
+    res.status(500).json({ error: 'Failed to generate image' });
+  }
+});
 
 // Get current pet state
 router.get('/', auth, async (req, res) => {
@@ -409,6 +439,81 @@ router.post('/dev-reset', auth, async (req, res) => {
   }
 });
 
+// Developer mode: Update pet stats
+router.post('/dev-stats', [
+  auth,
+  body('stat').isIn(['hunger', 'happiness', 'hygiene', 'health', 'discipline', 'energy']),
+  body('value').isInt({ min: 0, max: 100 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log('🐾 Dev stats update failed - validation errors:', JSON.stringify({
+        timestamp: new Date().toISOString(),
+        userId: req.user.id,
+        stat: req.body.stat,
+        value: req.body.value,
+        errors: errors.array(),
+        ip: req.ip
+      }));
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const tamagotchi = await Tamagotchi.findByUserId(req.user.id);
+    if (!tamagotchi) {
+      return res.status(404).json({ error: 'No pet found' });
+    }
+    
+    const { stat, value } = req.body;
+    const statUpdates = { [stat]: value };
+    
+    const updatedPet = await Tamagotchi.updateStats(req.user.id, statUpdates);
+    
+    console.log('🐾 Pet stats updated (dev mode):', JSON.stringify({
+      timestamp: new Date().toISOString(),
+      userId: req.user.id,
+      petId: updatedPet.id,
+      petName: updatedPet.name,
+      statUpdated: stat,
+      newValue: value,
+      stats: {
+        hunger: updatedPet.hunger,
+        happiness: updatedPet.happiness,
+        hygiene: updatedPet.hygiene,
+        health: updatedPet.health,
+        discipline: updatedPet.discipline,
+        energy: updatedPet.energy
+      },
+      evolutionPoints: updatedPet.evolution_points,
+      ip: req.ip
+    }));
+    
+    res.json({
+      message: `${stat} updated to ${value}`,
+      pet: {
+        id: updatedPet.id,
+        name: updatedPet.name,
+        stage: updatedPet.stage,
+        createdAt: updatedPet.created_at,
+        lastInteractedAt: updatedPet.last_interacted_at,
+        isSleeping: updatedPet.is_sleeping,
+        stats: {
+          hunger: updatedPet.hunger,
+          happiness: updatedPet.happiness,
+          hygiene: updatedPet.hygiene,
+          health: updatedPet.health,
+          discipline: updatedPet.discipline,
+          energy: updatedPet.energy
+        },
+        evolutionPoints: updatedPet.evolution_points
+      }
+    });
+  } catch (error) {
+    console.error('🐾 Dev stats update error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Developer mode: Change pet stage
 router.post('/dev-stage', [
   auth,
@@ -481,5 +586,93 @@ router.post('/dev-stage', [
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+// Helper function to generate pet status image
+async function generatePetImage(pet) {
+  const width = 400;
+  const height = 300;
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext('2d');
+  
+  // Background gradient
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, '#667eea');
+  gradient.addColorStop(1, '#764ba2');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  
+  // Pet name
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold 24px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(pet.name, width / 2, 40);
+  
+  // Pet stage emoji
+  const stageEmojis = {
+    'egg': '🥚',
+    'baby': '🐣',
+    'child': '🐤',
+    'teen': '🐥',
+    'adult': '🐔',
+    'dead': '💀'
+  };
+  
+  const emoji = stageEmojis[pet.stage] || '🥚';
+  ctx.font = '48px Arial';
+  ctx.fillText(emoji, width / 2, 100);
+  
+  // Stage text
+  ctx.font = '16px Arial';
+  ctx.fillText(`Stage: ${pet.stage}`, width / 2, 130);
+  
+  // Stats section
+  const stats = [
+    { name: 'Hunger', value: pet.hunger, color: '#ff6b6b' },
+    { name: 'Happiness', value: pet.happiness, color: '#4ecdc4' },
+    { name: 'Hygiene', value: pet.hygiene, color: '#45b7d1' },
+    { name: 'Health', value: pet.health, color: '#96ceb4' },
+    { name: 'Discipline', value: pet.discipline, color: '#feca57' },
+    { name: 'Energy', value: pet.energy, color: '#ff9ff3' }
+  ];
+  
+  const startY = 160;
+  const statHeight = 20;
+  const barWidth = 200;
+  
+  stats.forEach((stat, index) => {
+    const y = startY + (index * statHeight);
+    
+    // Stat name
+    ctx.fillStyle = 'white';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(stat.name, 50, y + 15);
+    
+    // Stat value
+    ctx.textAlign = 'right';
+    ctx.fillText(`${stat.value}%`, 350, y + 15);
+    
+    // Progress bar background
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.fillRect(150, y, barWidth, 12);
+    
+    // Progress bar fill
+    ctx.fillStyle = stat.color;
+    ctx.fillRect(150, y, (barWidth * stat.value) / 100, 12);
+    
+    // Progress bar border
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(150, y, barWidth, 12);
+  });
+  
+  // Footer
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.font = '10px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('Tamagotchi Web App', width / 2, height - 10);
+  
+  return canvas.toBuffer('image/png');
+}
 
 module.exports = router; 
