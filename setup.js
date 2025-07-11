@@ -7,8 +7,17 @@ require('dotenv').config();
 
 console.log('🐣 Tamagotchi Web App Setup\n');
 
+// Check if we're in a build environment (Vercel, etc.)
+const isBuildEnvironment = process.env.VERCEL || process.env.NODE_ENV === 'production' || process.env.CI;
+
 async function checkEnvironment() {
     console.log('📋 Checking environment variables...');
+    
+    if (isBuildEnvironment) {
+        console.log('🏗️ Build environment detected - skipping database setup');
+        console.log('✅ Environment check completed for build');
+        return;
+    }
     
     const required = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'JWT_SECRET'];
     const missing = required.filter(key => !process.env[key]);
@@ -24,6 +33,11 @@ async function checkEnvironment() {
 
 async function testDatabaseConnection() {
     console.log('\n🔌 Testing database connection...');
+    
+    if (isBuildEnvironment) {
+        console.log('🏗️ Build environment detected - skipping database connection test');
+        return null;
+    }
     
     const pool = new Pool({
         host: process.env.DB_HOST,
@@ -44,8 +58,54 @@ async function testDatabaseConnection() {
     }
 }
 
+async function checkDatabaseSetup(pool) {
+    console.log('\n🔍 Checking database setup...');
+    
+    try {
+        // Check if users table exists
+        const usersResult = await pool.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'users'
+            );
+        `);
+        
+        // Check if tamagotchi table exists
+        const tamagotchiResult = await pool.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'tamagotchi'
+            );
+        `);
+        
+        if (usersResult.rows[0].exists && tamagotchiResult.rows[0].exists) {
+            console.log('✅ Database tables already exist');
+            return true;
+        }
+        
+        return false;
+    } catch (error) {
+        console.error('❌ Error checking database setup:', error.message);
+        return false;
+    }
+}
+
 async function createTables(pool) {
     console.log('\n🗄️ Creating database tables...');
+    
+    if (isBuildEnvironment) {
+        console.log('🏗️ Build environment detected - skipping table creation');
+        return;
+    }
+    
+    // Check if tables already exist
+    const isSetup = await checkDatabaseSetup(pool);
+    if (isSetup) {
+        console.log('ℹ️ Database is already set up - skipping creation');
+        return;
+    }
     
     try {
         const schemaPath = path.join(__dirname, 'database', 'schema.sql');
@@ -54,8 +114,16 @@ async function createTables(pool) {
         await pool.query(schema);
         console.log('✅ Database tables created successfully');
     } catch (error) {
-        console.error('❌ Failed to create tables:', error.message);
-        process.exit(1);
+        // Check if it's a "already exists" error
+        if (error.message.includes('already exists') || error.message.includes('duplicate key')) {
+            console.log('ℹ️ Database objects already exist - skipping creation');
+            console.log('✅ Database is ready to use');
+        } else {
+            console.error('❌ Failed to create tables:', error.message);
+            console.log('💡 This might be due to existing database objects');
+            console.log('💡 Try dropping the database and running setup again if needed');
+            process.exit(1);
+        }
     }
 }
 
@@ -84,6 +152,12 @@ async function main() {
         await checkEnvironment();
         await checkDependencies();
         
+        if (isBuildEnvironment) {
+            console.log('\n🎉 Build setup completed successfully!');
+            console.log('📦 Application is ready for deployment');
+            return;
+        }
+        
         const pool = await testDatabaseConnection();
         await createTables(pool);
         
@@ -92,7 +166,9 @@ async function main() {
         console.log('   npm run dev');
         console.log('\n🌐 Then open http://localhost:3000 in your browser');
         
-        await pool.end();
+        if (pool) {
+            await pool.end();
+        }
     } catch (error) {
         console.error('\n❌ Setup failed:', error.message);
         process.exit(1);

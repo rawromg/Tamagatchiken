@@ -121,6 +121,8 @@ app.listen(PORT, () => {
   console.log(`🚀 Tamagotchi server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔒 SSL Mode: ${process.env.NODE_ENV === 'production' ? 'enabled' : 'disabled'}`);
+  console.log(`🌐 CORS: ${process.env.NODE_ENV === 'production' ? 'disabled' : 'enabled'}`);
 });
 
 module.exports = app; 
