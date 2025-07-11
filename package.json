@@ -7,7 +7,7 @@
     "start": "node server.js",
     "start:prod": "node -e \"process.env.NODE_ENV='production'; require('./server.js')\"",
     "dev": "nodemon server.js",
-    "build": "node setup-db.js && echo 'Build completed'",
+    "build": "node setup-db.js && node setup.js && echo 'Build completed'",
     "test": "jest",
     "setup": "node setup.js",
     "setup-db": "node setup-db.js",

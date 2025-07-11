@@ -62,28 +62,20 @@ async function setupDatabase() {
         const schemaPath = path.join(__dirname, 'database', 'schema.sql');
         const schema = fs.readFileSync(schemaPath, 'utf8');
         
-        // Split schema into individual statements
-        const statements = schema
-            .split(';')
-            .map(stmt => stmt.trim())
-            .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
-        
-        for (const statement of statements) {
-            if (statement.trim()) {
-                try {
-                    await pool.query(statement);
-                    console.log('✅ Executed:', statement.substring(0, 50) + '...');
-                } catch (error) {
-                    // Ignore "already exists" errors
-                    if (error.message.includes('already exists') || 
-                        error.message.includes('duplicate key') ||
-                        error.message.includes('already exists')) {
-                        console.log('ℹ️ Skipped (already exists):', statement.substring(0, 50) + '...');
-                    } else {
-                        console.error('❌ Error executing statement:', error.message);
-                        throw error;
-                    }
-                }
+        // Execute the entire schema as one statement to avoid splitting issues
+        try {
+            await pool.query(schema);
+            console.log('✅ Database schema executed successfully');
+        } catch (error) {
+            // Check if it's an "already exists" error
+            if (error.message.includes('already exists') || 
+                error.message.includes('duplicate key') ||
+                error.message.includes('already exists')) {
+                console.log('ℹ️ Database objects already exist - skipping creation');
+                console.log('✅ Database is ready to use');
+            } else {
+                console.error('❌ Error executing schema:', error.message);
+                throw error;
             }
         }
         

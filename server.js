@@ -54,7 +54,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'", "http://localhost:3000", "https://localhost:3000"],
@@ -255,6 +255,27 @@ app.get('/styles.css', (req, res) => {
   } else {
     res.status(404).json({ error: 'styles.css not found' });
   }
+});
+
+app.get('/icon-fallback.css', (req, res) => {
+  res.setHeader('Content-Type', 'text/css');
+  res.send(`
+/* Fallback icons using Unicode symbols */
+.fa-utensils::before { content: "🍴"; }
+.fa-gamepad::before { content: "🎮"; }
+.fa-bath::before { content: "🛁"; }
+.fa-heart::before { content: "❤️"; }
+.fa-exclamation-triangle::before { content: "⚠️"; }
+.fa-bed::before { content: "🛏️"; }
+.fa-pencil-alt::before { content: "✏️"; }
+.fa-egg::before { content: "🥚"; }
+.fa-arrow-right::before { content: "➡️"; }
+
+/* Hide Font Awesome icons if they fail to load */
+.fa:not(.fa-utensils):not(.fa-gamepad):not(.fa-bath):not(.fa-heart):not(.fa-exclamation-triangle):not(.fa-bed):not(.fa-pencil-alt):not(.fa-egg):not(.fa-arrow-right) {
+    display: none;
+}
+  `);
 });
 
 app.get('/app.js', (req, res) => {
