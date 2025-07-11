@@ -59,20 +59,22 @@ class Tamagotchi {
     
     if (hoursDiff < 0.1) return tamagotchi; // Less than 6 minutes, no degradation
     
-    const updates = { ...tamagotchi };
+    let updates = { ...tamagotchi };
     
     // Passive degradation rates
     const hungerDrop = Math.floor(hoursDiff * 10); // 10 pts per hour
     const happinessDrop = Math.floor(hoursDiff * 5); // 5 pts per hour
     const hygieneDrop = Math.floor(hoursDiff * 7 * 2/3); // 7 pts every 90 minutes
-    const energyDrop = tamagotchi.is_sleeping ? 
-      Math.floor(hoursDiff * 5) : // 5 pts per hour when sleeping
-      Math.floor(hoursDiff * 15); // 15 pts per hour when awake
+    
+    // Energy logic: increases when sleeping, decreases when awake
+    const energyChange = tamagotchi.is_sleeping ? 
+      Math.floor(hoursDiff * 5) : // +5 pts per hour when sleeping (resting)
+      -Math.floor(hoursDiff * 15); // -15 pts per hour when awake (being active)
     
     updates.hunger = Math.max(0, tamagotchi.hunger - hungerDrop);
     updates.happiness = Math.max(0, tamagotchi.happiness - happinessDrop);
     updates.hygiene = Math.max(0, tamagotchi.hygiene - hygieneDrop);
-    updates.energy = Math.max(0, tamagotchi.energy - energyDrop);
+    updates.energy = Math.max(0, Math.min(100, tamagotchi.energy + energyChange));
     
     // Health degradation if hunger or hygiene is 0
     if (updates.hunger === 0 || updates.hygiene === 0) {

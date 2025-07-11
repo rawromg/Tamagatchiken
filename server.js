@@ -11,7 +11,7 @@ const petRoutes = require('./routes/pet');
 const Tamagotchi = require('./models/Tamagotchi');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.NODE_ENV === 'production' ? (process.env.PORT || 3001) : (process.env.PORT || 3000);
 
 // Serve static files from public directory
 app.use(express.static('public'));
@@ -42,6 +42,14 @@ app.use('/pet', petRoutes);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Development mode check endpoint
+app.get('/dev-mode', (req, res) => {
+  res.json({ 
+    isDevMode: process.env.NODE_ENV === 'development' || process.argv.includes('dev'),
+    timestamp: new Date().toISOString() 
+  });
 });
 
 // Background job: Check for inactive pets and force death after 72 hours
