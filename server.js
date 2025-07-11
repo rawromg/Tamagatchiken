@@ -113,52 +113,58 @@ app.get('/debug', (req, res) => {
 });
 
 // Background job: Check for inactive pets and force death after 72 hours
-cron.schedule('0 */6 * * *', async () => { // Every 6 hours
-  try {
-    console.log('Running background job: Checking for inactive pets...');
-    
-    const db = require('./config/database');
-    const query = `
-      UPDATE tamagotchi 
-      SET stage = 'dead', health = 0
-      WHERE last_interacted_at < NOW() - INTERVAL '72 hours'
-      AND stage != 'dead'
-    `;
-    
-    const result = await db.query(query);
-    if (result.rowCount > 0) {
-      console.log(`Forced death for ${result.rowCount} inactive pets`);
+// Only run in non-serverless environments
+if (!process.env.VERCEL) {
+  cron.schedule('0 */6 * * *', async () => { // Every 6 hours
+    try {
+      console.log('Running background job: Checking for inactive pets...');
+      
+      const db = require('./config/database');
+      const query = `
+        UPDATE tamagotchi 
+        SET stage = 'dead', health = 0
+        WHERE last_interacted_at < NOW() - INTERVAL '72 hours'
+        AND stage != 'dead'
+      `;
+      
+      const result = await db.query(query);
+      if (result.rowCount > 0) {
+        console.log(`Forced death for ${result.rowCount} inactive pets`);
+      }
+    } catch (error) {
+      console.error('Background job error:', error);
     }
-  } catch (error) {
-    console.error('Background job error:', error);
-  }
-});
+  });
+}
 
 // Background job: Daily evolution check
-cron.schedule('0 0 * * *', async () => { // Every day at midnight
-  try {
-    console.log('Running background job: Daily evolution check...');
-    
-    const db = require('./config/database');
-    const query = `
-      SELECT * FROM tamagotchi 
-      WHERE stage != 'dead' 
-      AND stage != 'adult'
-    `;
-    
-    const result = await db.query(query);
-    
-    for (const pet of result.rows) {
-      const updatedPet = await Tamagotchi.calculatePassiveDegradation(pet);
-      if (updatedPet.stage !== pet.stage) {
-        await Tamagotchi.updateStats(pet.user_id, updatedPet);
-        console.log(`Pet ${pet.id} evolved to ${updatedPet.stage}`);
+// Only run in non-serverless environments
+if (!process.env.VERCEL) {
+  cron.schedule('0 0 * * *', async () => { // Every day at midnight
+    try {
+      console.log('Running background job: Daily evolution check...');
+      
+      const db = require('./config/database');
+      const query = `
+        SELECT * FROM tamagotchi 
+        WHERE stage != 'dead' 
+        AND stage != 'adult'
+      `;
+      
+      const result = await db.query(query);
+      
+      for (const pet of result.rows) {
+        const updatedPet = await Tamagotchi.calculatePassiveDegradation(pet);
+        if (updatedPet.stage !== pet.stage) {
+          await Tamagotchi.updateStats(pet.user_id, updatedPet);
+          console.log(`Pet ${pet.id} evolved to ${updatedPet.stage}`);
+        }
       }
+    } catch (error) {
+      console.error('Evolution check error:', error);
     }
-  } catch (error) {
-    console.error('Evolution check error:', error);
-  }
-});
+  });
+}
 
 // Fallback to index.html for SPA routing
 app.get('*', (req, res) => {
@@ -212,11 +218,24 @@ async function testDatabaseConnection() {
 // Start server
 async function startServer() {
   try {
-    // Test database connection
-    const dbConnected = await testDatabaseConnection();
-    if (!dbConnected) {
-      console.error('❌ Cannot start server without database connection');
-      process.exit(1);
+    console.log('🚀 Starting Tamagotchi server...');
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 Port: ${PORT}`);
+    
+    // Test database connection (but don't fail if it doesn't work)
+    try {
+      const dbConnected = await testDatabaseConnection();
+      if (!dbConnected) {
+        console.warn('⚠️ Database connection failed, but continuing...');
+      }
+    } catch (dbError) {
+      console.warn('⚠️ Database test failed, but continuing:', dbError.message);
+    }
+    
+    // For Vercel serverless, we don't actually listen on a port
+    if (process.env.VERCEL) {
+      console.log('✅ Serverless function ready');
+      return;
     }
     
     app.listen(PORT, () => {
@@ -228,10 +247,30 @@ async function startServer() {
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
-    process.exit(1);
+    // Don't exit in serverless environment
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   }
 }
 
 startServer();
+
+// Global error handlers
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Don't exit in serverless environment
+  if (!process.env.VERCEL) {
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit in serverless environment
+  if (!process.env.VERCEL) {
+    process.exit(1);
+  }
+});
 
 module.exports = app; 
