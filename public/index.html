@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tamagotchi Web Revive</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Login/Signup Screen -->
+        <div id="auth-screen" class="screen active">
+            <div class="auth-container">
+                <div class="auth-header">
+                    <h1>🐣 Tamagotchi Web Revive</h1>
+                    <p>Raise your digital pet in the modern web!</p>
+                </div>
+                
+                <div class="auth-tabs">
+                    <button class="tab-btn active" data-tab="login">Login</button>
+                    <button class="tab-btn" data-tab="signup">Sign Up</button>
+                </div>
+                
+                <!-- Login Form -->
+                <form id="login-form" class="auth-form active">
+                    <div class="form-group">
+                        <label for="login-email">Email</label>
+                        <input type="email" id="login-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+                
+                <!-- Signup Form -->
+                <form id="signup-form" class="auth-form">
+                    <div class="form-group">
+                        <label for="signup-email">Email</label>
+                        <input type="email" id="signup-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-password">Password</label>
+                        <input type="password" id="signup-password" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Sign Up</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Game Screen -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <div class="user-info">
+                    <span id="user-email"></span>
+                    <button id="logout-btn" class="btn btn-small">Logout</button>
+                </div>
+            </div>
+            
+            <div class="game-container">
+                <!-- Pet Display -->
+                <div class="pet-section">
+                    <div class="pet-display">
+                        <div id="pet-sprite" class="pet-sprite egg">
+                            <div class="pet-stage">🥚</div>
+                        </div>
+                        <div class="pet-info">
+                            <h2 id="pet-name">No Pet</h2>
+                            <p id="pet-stage">Stage: None</p>
+                            <p id="pet-age">Age: 0 hours</p>
+                            <p id="pet-id" class="pet-id hidden">ID: <span id="pet-id-value"></span></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Stats Bars -->
+                <div class="stats-section">
+                    <h3>Pet Stats</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <label>Hunger</label>
+                            <div class="stat-bar">
+                                <div id="hunger-bar" class="stat-fill" style="width: 100%"></div>
+                            </div>
+                            <span id="hunger-value">100</span>
+                            <button class="stat-edit-btn dev-only" data-stat="hunger" title="Edit hunger value">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </div>
+                        <div class="stat-item">
+                            <label>Happiness</label>
+                            <div class="stat-bar">
+                                <div id="happiness-bar" class="stat-fill" style="width: 100%"></div>
+                            </div>
+                            <span id="happiness-value">100</span>
+                            <button class="stat-edit-btn dev-only" data-stat="happiness" title="Edit happiness value">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </div>
+                        <div class="stat-item">
+                            <label>Hygiene</label>
+                            <div class="stat-bar">
+                                <div id="hygiene-bar" class="stat-fill" style="width: 100%"></div>
+                            </div>
+                            <span id="hygiene-value">100</span>
+                            <button class="stat-edit-btn dev-only" data-stat="hygiene" title="Edit hygiene value">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </div>
+                        <div class="stat-item">
+                            <label>Health</label>
+                            <div class="stat-bar">
+                                <div id="health-bar" class="stat-fill" style="width: 100%"></div>
+                            </div>
+                            <span id="health-value">100</span>
+                            <button class="stat-edit-btn dev-only" data-stat="health" title="Edit health value">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </div>
+                        <div class="stat-item">
+                            <label>Discipline</label>
+                            <div class="stat-bar">
+                                <div id="discipline-bar" class="stat-fill" style="width: 0%"></div>
+                            </div>
+                            <span id="discipline-value">0</span>
+                            <button class="stat-edit-btn dev-only" data-stat="discipline" title="Edit discipline value">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </div>
+                        <div class="stat-item">
+                            <label>Energy</label>
+                            <div class="stat-bar">
+                                <div id="energy-bar" class="stat-fill" style="width: 100%"></div>
+                            </div>
+                            <span id="energy-value">100</span>
+                            <button class="stat-edit-btn dev-only" data-stat="energy" title="Edit energy value">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="actions-section">
+                    <h3>Actions</h3>
+                    <div class="actions-grid">
+                        <button id="feed-btn" class="action-btn" data-action="feed">
+                            <i class="fas fa-utensils"></i>
+                            <span>Feed</span>
+                        </button>
+                        <button id="play-btn" class="action-btn" data-action="play">
+                            <i class="fas fa-gamepad"></i>
+                            <span>Play</span>
+                        </button>
+                        <button id="clean-btn" class="action-btn" data-action="clean">
+                            <i class="fas fa-bath"></i>
+                            <span>Clean</span>
+                        </button>
+                        <button id="heal-btn" class="action-btn" data-action="heal">
+                            <i class="fas fa-heart"></i>
+                            <span>Heal</span>
+                        </button>
+                        <button id="discipline-btn" class="action-btn" data-action="discipline">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Discipline</span>
+                        </button>
+                        <button id="sleep-btn" class="action-btn" data-action="sleep">
+                            <i class="fas fa-bed"></i>
+                            <span>Sleep</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Developer Section (only visible in dev mode) -->
+                    <div id="dev-section" class="dev-section hidden">
+                        <h4>🧪 Developer Tools</h4>
+                        <div class="dev-tools-grid">
+                            <button id="dev-reset-btn" class="btn btn-warning">
+                                <i class="fas fa-egg"></i>
+                                <span>Re-alive Pet</span>
+                            </button>
+                            <div class="dev-stage-control">
+                                <label for="dev-stage-select">Change Stage:</label>
+                                <select id="dev-stage-select" class="dev-select">
+                                    <option value="egg">🥚 Egg</option>
+                                    <option value="baby">🐣 Baby</option>
+                                    <option value="child">🐤 Child</option>
+                                    <option value="teen">🐥 Teen</option>
+                                    <option value="adult">🐔 Adult</option>
+                                    <option value="dead">💀 Dead</option>
+                                </select>
+                                <button id="dev-stage-btn" class="btn btn-info">
+                                    <i class="fas fa-arrow-right"></i>
+                                    <span>Set Stage</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Spawn/Revive Section -->
+                <div id="spawn-section" class="spawn-section hidden">
+                    <h3>Start Your Adventure</h3>
+                    <div class="spawn-form">
+                        <input type="text" id="pet-name-input" placeholder="Enter pet name..." maxlength="20">
+                        <button id="spawn-btn" class="btn btn-primary">Spawn Pet</button>
+                    </div>
+                </div>
+                
+                <div id="revive-section" class="revive-section hidden">
+                    <h3>Your Pet Has Passed Away</h3>
+                    <p>Don't worry! You can start a new adventure with a fresh egg.</p>
+                    <div class="revive-form">
+                        <input type="text" id="revive-name-input" placeholder="Enter new pet name..." maxlength="20">
+                        <button id="revive-btn" class="btn btn-primary">Start New Life</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stat Edit Modal -->
+    <div id="stat-edit-modal" class="stat-edit-modal">
+        <div class="stat-edit-content">
+            <h3 id="stat-edit-title">Edit Stat Value</h3>
+            <form id="stat-edit-form" class="stat-edit-form">
+                <div>
+                    <label for="stat-edit-value">Value (0-100):</label>
+                    <input type="number" id="stat-edit-value" min="0" max="100" required>
+                </div>
+                <div class="stat-edit-buttons">
+                    <button type="button" class="btn-cancel" id="stat-edit-cancel">Cancel</button>
+                    <button type="submit" class="btn-save" id="stat-edit-save">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="app.js"></script>
+</body>
+</html> 
