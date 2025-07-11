@@ -46,6 +46,15 @@ else
     exit 1
 fi
 
+# Step 2: Database setup
+print_status "Setting up database..."
+if node setup-db.js; then
+    print_success "Database setup completed successfully"
+else
+    print_warning "Database setup failed - this might be expected in some environments"
+    print_warning "Database tables may need to be created manually"
+fi
+
 # Step 2: Check if we should start the server
 # In Vercel, we typically don't start the server during build
 # This is mainly for local testing or custom deployments

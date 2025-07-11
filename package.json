@@ -10,6 +10,7 @@
     "build": "echo 'Build completed'",
     "test": "jest",
     "setup": "node setup.js",
+    "setup-db": "node setup-db.js",
     "test-api": "node test-api.js",
     "test-env": "node test-env.js"
   },
