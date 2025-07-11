@@ -24,6 +24,9 @@ app.use(express.static(path.join(__dirname, 'public'), {
   fallthrough: true // Allow requests to fall through to the next middleware
 }));
 
+// Also serve static files from root public directory (for Vercel)
+app.use('/public', express.static(path.join(__dirname, 'public')));
+
 // Security middleware
 app.use(helmet());
 app.use(cors({
@@ -217,7 +220,9 @@ app.get('*', (req, res) => {
     path.join(__dirname, 'public', 'index.html'),
     path.join(__dirname, 'index.html'),
     'public/index.html',
-    'index.html'
+    'index.html',
+    '/var/task/public/index.html',
+    '/tmp/public/index.html'
   ];
   
   let indexPath = null;
