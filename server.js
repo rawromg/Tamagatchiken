@@ -13,6 +13,12 @@ const Tamagotchi = require('./models/Tamagotchi');
 const app = express();
 const PORT = process.env.NODE_ENV === 'production' ? (process.env.PORT || 3001) : (process.env.PORT || 3000);
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
 // Serve static files from public directory
 app.use(express.static('public'));
 
@@ -35,9 +41,25 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/auth', authRoutes);
-app.use('/pet', petRoutes);
+// Routes with error handling
+app.use('/auth', (req, res, next) => {
+  console.log('Auth route accessed:', req.path);
+  next();
+}, authRoutes);
+
+app.use('/pet', (req, res, next) => {
+  console.log('Pet route accessed:', req.path);
+  next();
+}, petRoutes);
+
+// Simple test endpoint
+app.get('/test', (req, res) => {
+  res.json({ 
+    message: 'Server is working!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
@@ -140,7 +162,17 @@ cron.schedule('0 0 * * *', async () => { // Every day at midnight
 
 // Fallback to index.html for SPA routing
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  console.log('Serving index.html for path:', req.path);
+  try {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  } catch (error) {
+    console.error('Error serving index.html:', error);
+    res.status(500).json({ 
+      error: 'Failed to serve static file',
+      path: req.path,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Error handling middleware
