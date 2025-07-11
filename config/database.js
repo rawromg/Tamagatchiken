@@ -16,9 +16,11 @@ const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   ...sslConfig,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  max: process.env.VERCEL ? 1 : 20, // Single connection for serverless
+  idleTimeoutMillis: process.env.VERCEL ? 10000 : 30000, // Shorter timeout for serverless
+  connectionTimeoutMillis: process.env.VERCEL ? 5000 : 2000, // Longer connection timeout for serverless
+  statement_timeout: process.env.VERCEL ? 10000 : 30000, // Query timeout
+  query_timeout: process.env.VERCEL ? 10000 : 30000, // Query timeout
 });
 
 // Test the connection

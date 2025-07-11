@@ -57,15 +57,53 @@ app.get('/test', (req, res) => {
   res.json({ 
     message: 'Server is working!',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    vercel: !!process.env.VERCEL
   });
+});
+
+// Database test endpoint
+app.get('/db-test', async (req, res) => {
+  try {
+    const db = require('./config/database');
+    
+    // Set a timeout for the database query
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Database query timeout')), 5000);
+    });
+    
+    const dbQuery = db.query('SELECT NOW() as current_time');
+    const result = await Promise.race([dbQuery, timeoutPromise]);
+    
+    res.json({ 
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      database_time: result.rows[0].current_time,
+      environment: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    console.error('Database test failed:', error);
+    res.status(500).json({ 
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      environment: process.env.NODE_ENV || 'development'
+    });
+  }
 });
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
   try {
     const db = require('./config/database');
-    await db.query('SELECT NOW()');
+    
+    // Set a timeout for the database query
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Database query timeout')), 5000);
+    });
+    
+    const dbQuery = db.query('SELECT NOW()');
+    await Promise.race([dbQuery, timeoutPromise]);
     
     res.json({ 
       status: 'OK', 
@@ -221,15 +259,21 @@ async function startServer() {
     console.log('🚀 Starting Tamagotchi server...');
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔗 Port: ${PORT}`);
+    console.log(`🏗️ Vercel: ${process.env.VERCEL ? 'Yes' : 'No'}`);
     
-    // Test database connection (but don't fail if it doesn't work)
-    try {
-      const dbConnected = await testDatabaseConnection();
-      if (!dbConnected) {
-        console.warn('⚠️ Database connection failed, but continuing...');
+    // For Vercel serverless, skip database test on startup
+    if (!process.env.VERCEL) {
+      // Test database connection (but don't fail if it doesn't work)
+      try {
+        const dbConnected = await testDatabaseConnection();
+        if (!dbConnected) {
+          console.warn('⚠️ Database connection failed, but continuing...');
+        }
+      } catch (dbError) {
+        console.warn('⚠️ Database test failed, but continuing:', dbError.message);
       }
-    } catch (dbError) {
-      console.warn('⚠️ Database test failed, but continuing:', dbError.message);
+    } else {
+      console.log('✅ Skipping database test for serverless environment');
     }
     
     // For Vercel serverless, we don't actually listen on a port
