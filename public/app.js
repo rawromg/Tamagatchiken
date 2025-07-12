@@ -45,11 +45,13 @@ class TamagotchiApp {
         document.querySelectorAll('.action-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const action = e.currentTarget.dataset.action;
-                if (action === 'sleep') {
-                    this.toggleSleep();
-                } else {
-                    this.performAction(action);
-                }
+                            if (action === 'sleep') {
+                this.toggleSleep();
+            } else if (action === 'light') {
+                this.toggleLight();
+            } else {
+                this.performAction(action);
+            }
             });
         });
 
@@ -350,6 +352,33 @@ class TamagotchiApp {
         }
     }
 
+    async toggleLight() {
+        if (!this.currentPet || this.currentPet.stage === 'dead') {
+            this.showToast('Pet is not available for actions', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiBase}/pet/light`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                this.currentPet = data.pet;
+                this.updatePetDisplay();
+                this.updateDarkMode();
+                this.showToast(data.message, 'success');
+            } else {
+                this.showToast(data.error, 'error');
+            }
+        } catch (error) {
+            this.showToast('Light toggle failed', 'error');
+        }
+    }
+
     updatePetDisplay() {
         if (!this.currentPet) return;
 
@@ -364,13 +393,23 @@ class TamagotchiApp {
         document.getElementById('pet-id-value').textContent = this.currentPet.id;
         document.getElementById('pet-id').classList.remove('hidden');
 
+        // Update light indicator
+        this.updateLightIndicator();
+
         // Update pet sprite
         const petSprite = document.getElementById('pet-sprite');
         petSprite.className = 'pet-sprite';
         petSprite.classList.add(this.currentPet.stage);
         
-        if (this.currentPet.isSleeping) {
+        // Update sleep state
+        if (this.currentPet.sleepState === 'asleep') {
             petSprite.classList.add('sleeping');
+        } else if (this.currentPet.sleepState === 'falling_asleep') {
+            petSprite.classList.add('falling-asleep');
+        } else if (this.currentPet.sleepState === 'waking_up') {
+            petSprite.classList.add('waking-up');
+        } else {
+            petSprite.classList.remove('sleeping', 'falling-asleep', 'waking-up');
         }
 
         // Update sprite emoji
@@ -402,6 +441,41 @@ class TamagotchiApp {
                 stageSelect.value = this.currentPet.stage;
             }
         }
+
+        // Update dark mode based on light state
+        this.updateDarkMode();
+    }
+
+    updateDarkMode() {
+        if (!this.currentPet) return;
+        
+        const body = document.body;
+        const isLightOn = this.currentPet.lightOn;
+        
+        if (isLightOn) {
+            body.classList.remove('dark-mode');
+        } else {
+            body.classList.add('dark-mode');
+        }
+    }
+
+    updateLightIndicator() {
+        if (!this.currentPet) return;
+        
+        const lightIndicator = document.getElementById('light-indicator');
+        const lightStatus = document.getElementById('light-status');
+        const lightIcon = lightIndicator.querySelector('i');
+        
+        if (this.currentPet.lightOn) {
+            lightIndicator.classList.remove('lights-off', 'hidden');
+            lightStatus.textContent = 'Lights On';
+            lightIcon.className = 'fas fa-lightbulb';
+        } else {
+            lightIndicator.classList.remove('hidden');
+            lightIndicator.classList.add('lights-off');
+            lightStatus.textContent = 'Lights Off';
+            lightIcon.className = 'fas fa-moon';
+        }
     }
 
     updateStatBar(statName, value) {
@@ -425,16 +499,24 @@ class TamagotchiApp {
 
     updateActionButtons() {
         const isDead = this.currentPet.stage === 'dead';
-        const isSleeping = this.currentPet.isSleeping;
+        const sleepState = this.currentPet.sleepState;
         
         document.querySelectorAll('.action-btn').forEach(btn => {
             const action = btn.dataset.action;
             
             if (action === 'sleep') {
                 btn.disabled = isDead;
+                const isAsleep = sleepState === 'asleep' || sleepState === 'falling_asleep';
                 btn.innerHTML = `
-                    <i class="fas fa-${isSleeping ? 'sun' : 'bed'}"></i>
-                    <span>${isSleeping ? 'Wake' : 'Sleep'}</span>
+                    <i class="fas fa-${isAsleep ? 'sun' : 'bed'}"></i>
+                    <span>${isAsleep ? 'Wake' : 'Sleep'}</span>
+                `;
+            } else if (action === 'light') {
+                btn.disabled = isDead;
+                const lightOn = this.currentPet.lightOn;
+                btn.innerHTML = `
+                    <i class="fas fa-${lightOn ? 'lightbulb' : 'moon'}"></i>
+                    <span>${lightOn ? 'Lights Off' : 'Lights On'}</span>
                 `;
             } else {
                 btn.disabled = isDead;

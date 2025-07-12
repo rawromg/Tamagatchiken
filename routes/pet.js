@@ -87,7 +87,9 @@ router.get('/', auth, async (req, res) => {
         stage: updatedPet.stage,
         createdAt: updatedPet.created_at,
         lastInteractedAt: updatedPet.last_interacted_at,
-        isSleeping: updatedPet.is_sleeping,
+        sleepState: updatedPet.sleep_state,
+        lightOn: updatedPet.light_on,
+        sleepQuality: updatedPet.sleep_quality,
         stats: {
           hunger: updatedPet.hunger,
           happiness: updatedPet.happiness,
@@ -165,7 +167,9 @@ router.post('/spawn', [
         stage: tamagotchi.stage,
         createdAt: tamagotchi.created_at,
         lastInteractedAt: tamagotchi.last_interacted_at,
-        isSleeping: tamagotchi.is_sleeping,
+        sleepState: tamagotchi.sleep_state,
+        lightOn: tamagotchi.light_on,
+        sleepQuality: tamagotchi.sleep_quality,
         stats: {
           hunger: tamagotchi.hunger,
           happiness: tamagotchi.happiness,
@@ -217,7 +221,9 @@ router.post('/action/:type', auth, async (req, res) => {
         energy: tamagotchi.energy
       },
       evolutionPoints: tamagotchi.evolution_points,
-      isSleeping: tamagotchi.is_sleeping,
+      sleepState: tamagotchi.sleep_state,
+      lightOn: tamagotchi.light_on,
+      sleepQuality: tamagotchi.sleep_quality,
       ip: req.ip
     }));
     
@@ -229,7 +235,9 @@ router.post('/action/:type', auth, async (req, res) => {
         stage: tamagotchi.stage,
         createdAt: tamagotchi.created_at,
         lastInteractedAt: tamagotchi.last_interacted_at,
-        isSleeping: tamagotchi.is_sleeping,
+        sleepState: tamagotchi.sleep_state,
+        lightOn: tamagotchi.light_on,
+        sleepQuality: tamagotchi.sleep_quality,
         stats: {
           hunger: tamagotchi.hunger,
           happiness: tamagotchi.happiness,
@@ -266,7 +274,9 @@ router.post('/sleep', auth, async (req, res) => {
       userId: req.user.id,
       petId: tamagotchi.id,
       petName: tamagotchi.name,
-      newSleepState: tamagotchi.is_sleeping,
+      newSleepState: tamagotchi.sleep_state,
+      lightOn: tamagotchi.light_on,
+      sleepQuality: tamagotchi.sleep_quality,
       stage: tamagotchi.stage,
       stats: {
         hunger: tamagotchi.hunger,
@@ -281,14 +291,16 @@ router.post('/sleep', auth, async (req, res) => {
     }));
     
     res.json({
-      message: `Pet is now ${tamagotchi.is_sleeping ? 'sleeping' : 'awake'}`,
+      message: `Pet is now ${tamagotchi.sleep_state}`,
       pet: {
         id: tamagotchi.id,
         name: tamagotchi.name,
         stage: tamagotchi.stage,
         createdAt: tamagotchi.created_at,
         lastInteractedAt: tamagotchi.last_interacted_at,
-        isSleeping: tamagotchi.is_sleeping,
+        sleepState: tamagotchi.sleep_state,
+        lightOn: tamagotchi.light_on,
+        sleepQuality: tamagotchi.sleep_quality,
         stats: {
           hunger: tamagotchi.hunger,
           happiness: tamagotchi.happiness,
@@ -310,6 +322,87 @@ router.post('/sleep', auth, async (req, res) => {
       }));
       return res.status(400).json({ error: 'Pet is dead' });
     }
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Toggle light
+router.post('/light', auth, async (req, res) => {
+  try {
+    const tamagotchi = await Tamagotchi.toggleLight(req.user.id);
+    
+    console.log('🐾 Pet light toggled:', JSON.stringify({
+      timestamp: new Date().toISOString(),
+      userId: req.user.id,
+      petId: tamagotchi.id,
+      petName: tamagotchi.name,
+      newLightState: tamagotchi.light_on,
+      sleepState: tamagotchi.sleep_state,
+      sleepQuality: tamagotchi.sleep_quality,
+      stage: tamagotchi.stage,
+      stats: {
+        hunger: tamagotchi.hunger,
+        happiness: tamagotchi.happiness,
+        hygiene: tamagotchi.hygiene,
+        health: tamagotchi.health,
+        discipline: tamagotchi.discipline,
+        energy: tamagotchi.energy
+      },
+      evolutionPoints: tamagotchi.evolution_points,
+      ip: req.ip
+    }));
+    
+    res.json({
+      message: `Light is now ${tamagotchi.light_on ? 'on' : 'off'}`,
+      pet: {
+        id: tamagotchi.id,
+        name: tamagotchi.name,
+        stage: tamagotchi.stage,
+        createdAt: tamagotchi.created_at,
+        lastInteractedAt: tamagotchi.last_interacted_at,
+        sleepState: tamagotchi.sleep_state,
+        lightOn: tamagotchi.light_on,
+        sleepQuality: tamagotchi.sleep_quality,
+        stats: {
+          hunger: tamagotchi.hunger,
+          happiness: tamagotchi.happiness,
+          hygiene: tamagotchi.hygiene,
+          health: tamagotchi.health,
+          discipline: tamagotchi.discipline,
+          energy: tamagotchi.energy
+        },
+        evolutionPoints: tamagotchi.evolution_points
+      }
+    });
+  } catch (error) {
+    console.error('🐾 Toggle light error:', error);
+    if (error.message === 'Pet is dead') {
+      console.log('🐾 Light toggle failed - pet is dead:', JSON.stringify({
+        timestamp: new Date().toISOString(),
+        userId: req.user.id,
+        ip: req.ip
+      }));
+      return res.status(400).json({ error: 'Pet is dead' });
+    }
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get sleep status
+router.get('/sleep-status', auth, async (req, res) => {
+  try {
+    const sleepStatus = await Tamagotchi.getSleepStatus(req.user.id);
+    
+    console.log('🐾 Sleep status retrieved:', JSON.stringify({
+      timestamp: new Date().toISOString(),
+      userId: req.user.id,
+      sleepStatus: sleepStatus,
+      ip: req.ip
+    }));
+    
+    res.json(sleepStatus);
+  } catch (error) {
+    console.error('🐾 Get sleep status error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

@@ -23,7 +23,11 @@ CREATE TABLE IF NOT EXISTS tamagotchi (
   discipline INTEGER DEFAULT 0 CHECK (discipline >= 0 AND discipline <= 100),
   energy INTEGER DEFAULT 100 CHECK (energy >= 0 AND energy <= 100),
   evolution_points INTEGER DEFAULT 0,
-  is_sleeping BOOLEAN DEFAULT FALSE,
+  -- Sleep system fields
+  sleep_state VARCHAR(20) DEFAULT 'awake' CHECK (sleep_state IN ('awake', 'falling_asleep', 'asleep', 'waking_up')),
+  sleep_start_time TIMESTAMP,
+  light_on BOOLEAN DEFAULT TRUE,
+  sleep_quality INTEGER DEFAULT 100 CHECK (sleep_quality >= 0 AND sleep_quality <= 100),
   UNIQUE(user_id)
 );
 

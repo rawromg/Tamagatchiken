@@ -1,8 +1,8 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// SSL configuration - only use SSL in production
-const sslConfig = process.env.NODE_ENV === 'production' ? {
+// SSL configuration - use SSL in production or when FORCESSL is true
+const sslConfig = (process.env.NODE_ENV === 'production' || process.env.FORCESSL === 'true') ? {
   ssl: {
     rejectUnauthorized: false,
     sslmode: 'require'

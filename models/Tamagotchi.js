@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const SleepSystem = require('./SleepSystem');
 
 class Tamagotchi {
   static async create(userId, name) {
@@ -36,7 +37,10 @@ class Tamagotchi {
         energy = COALESCE($7, energy),
         evolution_points = COALESCE($8, evolution_points),
         stage = COALESCE($9, stage),
-        is_sleeping = COALESCE($10, is_sleeping),
+        sleep_state = COALESCE($10, sleep_state),
+        sleep_start_time = COALESCE($11, sleep_start_time),
+        light_on = COALESCE($12, light_on),
+        sleep_quality = COALESCE($13, sleep_quality),
         last_interacted_at = CURRENT_TIMESTAMP
       WHERE user_id = $1
       RETURNING *
@@ -52,7 +56,10 @@ class Tamagotchi {
       updates.energy,
       updates.evolutionPoints,
       updates.stage,
-      updates.isSleeping
+      updates.sleepState,
+      updates.sleepStartTime,
+      updates.lightOn,
+      updates.sleepQuality
     ]);
     
     return result.rows[0];
@@ -67,15 +74,19 @@ class Tamagotchi {
     
     let updates = { ...tamagotchi };
     
+    // Update sleep state based on current conditions
+    const sleepUpdates = SleepSystem.updateSleepState(tamagotchi);
+    updates.sleepState = sleepUpdates.sleep_state;
+    updates.sleepStartTime = sleepUpdates.sleep_start_time;
+    updates.sleepQuality = sleepUpdates.sleep_quality;
+    
     // Passive degradation rates
     const hungerDrop = Math.floor(hoursDiff * 10); // 10 pts per hour
     const happinessDrop = Math.floor(hoursDiff * 5); // 5 pts per hour
     const hygieneDrop = Math.floor(hoursDiff * 7 * 2/3); // 7 pts every 90 minutes
     
-    // Energy logic: increases when sleeping, decreases when awake
-    const energyChange = tamagotchi.is_sleeping ? 
-      Math.floor(hoursDiff * 5) : // +5 pts per hour when sleeping (resting)
-      -Math.floor(hoursDiff * 15); // -15 pts per hour when awake (being active)
+    // Energy changes based on sleep system
+    const energyChange = SleepSystem.calculateEnergyChange(tamagotchi, hoursDiff);
     
     updates.hunger = Math.max(0, tamagotchi.hunger - hungerDrop);
     updates.happiness = Math.max(0, tamagotchi.happiness - happinessDrop);
@@ -97,6 +108,9 @@ class Tamagotchi {
     if (updates.stage !== 'dead') {
       updates = this.calculateEvolution(updates, hoursDiff);
     }
+    
+    // Ensure light_on property is preserved
+    updates.lightOn = tamagotchi.light_on;
     
     return updates;
   }
@@ -164,9 +178,41 @@ class Tamagotchi {
     if (tamagotchi.stage === 'dead') throw new Error('Pet is dead');
     
     const currentState = await this.calculatePassiveDegradation(tamagotchi);
-    const updates = { ...currentState, is_sleeping: !currentState.is_sleeping };
+    const sleepToggle = SleepSystem.handleManualSleepToggle(currentState);
+    
+    const updates = {
+      ...currentState,
+      sleepState: sleepToggle.sleep_state,
+      sleepStartTime: sleepToggle.sleep_start_time,
+      happiness: Math.max(0, currentState.happiness + sleepToggle.happinessPenalty)
+    };
     
     return await this.updateStats(userId, updates);
+  }
+
+  static async toggleLight(userId) {
+    const tamagotchi = await this.findByUserId(userId);
+    if (!tamagotchi) throw new Error('No tamagotchi found');
+    if (tamagotchi.stage === 'dead') throw new Error('Pet is dead');
+    
+    const currentState = await this.calculatePassiveDegradation(tamagotchi);
+    const lightToggle = SleepSystem.handleLightToggle(currentState, !currentState.light_on);
+    
+    const updates = {
+      ...currentState,
+      lightOn: lightToggle.light_on,
+      happiness: Math.max(0, currentState.happiness + lightToggle.happinessBonus)
+    };
+    
+    return await this.updateStats(userId, updates);
+  }
+
+  static async getSleepStatus(userId) {
+    const tamagotchi = await this.findByUserId(userId);
+    if (!tamagotchi) throw new Error('No tamagotchi found');
+    
+    const currentState = await this.calculatePassiveDegradation(tamagotchi);
+    return SleepSystem.getSleepStatus(currentState);
   }
 
   static async revive(userId, name) {
