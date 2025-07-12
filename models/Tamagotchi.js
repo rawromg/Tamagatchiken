@@ -184,7 +184,7 @@ class Tamagotchi {
       ...currentState,
       sleepState: sleepToggle.sleep_state,
       sleepStartTime: sleepToggle.sleep_start_time,
-      happiness: Math.max(0, currentState.happiness + sleepToggle.happinessPenalty)
+      happiness: Math.max(0, Math.min(100, currentState.happiness + sleepToggle.happinessPenalty))
     };
     
     return await this.updateStats(userId, updates);
@@ -201,7 +201,7 @@ class Tamagotchi {
     const updates = {
       ...currentState,
       lightOn: lightToggle.light_on,
-      happiness: Math.max(0, currentState.happiness + lightToggle.happinessBonus)
+      happiness: Math.max(0, Math.min(100, currentState.happiness + lightToggle.happinessBonus))
     };
     
     return await this.updateStats(userId, updates);
